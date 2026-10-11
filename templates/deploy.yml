@@ -1,0 +1,28 @@
+# Copy to the family repository, after configuring an isolated deployment runner.
+name: Deploy approved image
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [staging, production]
+        required: true
+      image:
+        description: 'Trusted CI-built image, including @sha256 digest'
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: deploy-${{ github.repository }}-${{ inputs.environment }}
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, autovps-deploy]
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Deploy
+        env:
+          PROJECT: ${{ vars.FAMILY_PROJECT }}
+          TARGET: ${{ inputs.environment }}
+          IMAGE: ${{ inputs.image }}
+        run: /opt/autovps/scripts/deploy.sh "$PROJECT" "$TARGET" "$IMAGE"
