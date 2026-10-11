@@ -1,0 +1,9 @@
+{
+  "project": "family-test",
+  "repository": "KadenMai/family-app-test",
+  "allowed_users": [
+    "KadenMai"
+  ],
+  "model": "gpt-5.3-codex",
+  "task_timeout_seconds": 1800
+}
