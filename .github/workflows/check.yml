@@ -1,0 +1,11 @@
+name: Check automation
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n scripts/bootstrap.sh scripts/prepare-project.sh scripts/deploy.sh
+      - run: python3 -m unittest discover -s tests -v
