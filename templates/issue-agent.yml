@@ -1,0 +1,73 @@
+# Copy to the FAMILY repository: .github/workflows/issue-agent.yml
+name: Issue to staging PR
+on:
+  issues:
+    types: [labeled]
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+concurrency:
+  group: agent-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  task:
+    if: github.event.label.name == 'agent:ready' && github.event.issue.state == 'open'
+    runs-on: [self-hosted, linux, autovps-coding]
+    timeout-minutes: 40
+    env:
+      ALLOWED_USERS: ${{ vars.AGENT_ALLOWED_USERS }}
+      CODEX_MODEL: gpt-5.3-codex
+      TASK_TIMEOUT_SECONDS: '1800'
+    steps:
+      - name: Check authorization before checkout
+        env:
+          ACTOR: ${{ github.actor }}
+          AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          allowed = {x.strip() for x in os.environ['ALLOWED_USERS'].split(',') if x.strip()}
+          assert os.environ['ACTOR'] in allowed and os.environ['AUTHOR'] in allowed, 'Unauthorized issue'
+          PYTHON
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+          persist-credentials: false
+          clean: true
+      - name: Mark running
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: gh issue edit "$ISSUE" --repo "$GITHUB_REPOSITORY" --remove-label agent:ready --add-label agent:running
+      - name: Run installed automation
+        run: python3 /opt/autovps/scripts/run-task.py
+      - name: Publish PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          git config user.name autovps-bot
+          git config user.email autovps-bot@users.noreply.github.com
+          if [[ -z $(git status --porcelain) ]]; then
+            echo 'No changes produced; task needs review.' >&2
+            exit 1
+          fi
+          branch="agent/issue-$ISSUE-run-$GITHUB_RUN_ID"
+          git checkout -b "$branch"
+          git add -A
+          git commit -m "Implement issue #$ISSUE"
+          gh auth setup-git
+          git push "https://github.com/$GITHUB_REPOSITORY.git" "$branch"
+          printf 'Addresses #%s. Review the changes and test results before merging.\n' "$ISSUE" > "$RUNNER_TEMP/pr-body.txt"
+          gh pr create --repo "$GITHUB_REPOSITORY" --base staging --head "$branch" --title "Implement issue #$ISSUE" --body-file "$RUNNER_TEMP/pr-body.txt"
+          gh issue edit "$ISSUE" --repo "$GITHUB_REPOSITORY" --remove-label agent:running --add-label agent:done
+      - name: Mark failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          gh issue edit "$ISSUE" --repo "$GITHUB_REPOSITORY" --remove-label agent:running --remove-label agent:ready --add-label agent:failed
+          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body "Task failed. See Actions run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID . Fix the cause before applying agent:ready again."
