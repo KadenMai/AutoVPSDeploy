@@ -8,7 +8,7 @@ This repository provides a coding-host bootstrap, branch/label setup, an issue-d
 
 ## 1. Prepare the NEW coding VPS
 
-Ubuntu 22.04 or 24.04, amd64/arm64. Do not use an existing production VPS for the first trial.
+Ubuntu 22.04, 24.04 or 26.04, amd64/arm64. Ubuntu 26.04 is accepted by the installer; live installation has not yet been verified. Do not use an existing production VPS for the first trial.
 
 ```bash
 git clone https://github.com/KadenMai/AutoVPSDeploy.git
