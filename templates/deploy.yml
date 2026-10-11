@@ -25,4 +25,4 @@ jobs:
           PROJECT: ${{ vars.FAMILY_PROJECT }}
           TARGET: ${{ inputs.environment }}
           IMAGE: ${{ inputs.image }}
-        run: /opt/autovps/scripts/deploy.sh "$PROJECT" "$TARGET" "$IMAGE"
+        run: bash /opt/autovps/scripts/deploy.sh "$PROJECT" "$TARGET" "$IMAGE"
